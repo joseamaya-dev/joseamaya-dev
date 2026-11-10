@@ -6,7 +6,9 @@ depende de fuentes instaladas. Uso:
 
     python3 generar_logo.py            # escribe ../infravenz-logo.svg
 """
+import base64
 import math
+import os
 import re
 from pathlib import Path
 
@@ -15,7 +17,7 @@ from fontTools.pens.transformPen import TransformPen
 from fontTools.ttLib import TTFont
 
 HERE = Path(__file__).resolve().parent
-OUT = HERE.parent / "infravenz-logo.svg"
+OUT = Path(os.environ.get("SALIDA", HERE.parent / "infravenz-logo.svg"))
 FONT = TTFont(HERE / "Cinzel-700.ttf")
 GLYPHS = FONT.getGlyphSet()
 CMAP = FONT.getBestCmap()
@@ -198,14 +200,20 @@ def ribbon():
 
 
 def portrait():
-    src = (HERE / "retrato.svg").read_text()
-    body = re.search(r"<svg[^>]*>(.*)</svg>", src, re.S).group(1)
-    paths = re.sub(r"<\?xml[^>]*>|<!--.*?-->", "", body, flags=re.S).strip()
-    vb_w = 942  # viewBox del retrato: 942 x 1200
+    """Retrato: PNG sepia restaurado (por defecto) o SVG ilustrado; ambos de 942 x 1200."""
+    archivo = HERE / os.environ.get("RETRATO", "retrato-foto.png")
+    vb_w, vb_h = 942, 1200
     w = 432
     s = w / vb_w
     x0 = CX - 0.49 * w
     y0 = 258
+    if archivo.suffix == ".png":
+        data = base64.b64encode(archivo.read_bytes()).decode()
+        return (f'<image x="{f(x0)}" y="{f(y0)}" width="{f(w)}" height="{f(vb_h * s)}" '
+                f'href="data:image/png;base64,{data}"/>')
+    src = archivo.read_text()
+    body = re.search(r"<svg[^>]*>(.*)</svg>", src, re.S).group(1)
+    paths = re.sub(r"<\?xml[^>]*>|<!--.*?-->", "", body, flags=re.S).strip()
     return f'<g transform="translate({f(x0)},{f(y0)}) scale({s:.5f})">\n{paths}\n</g>'
 
 
