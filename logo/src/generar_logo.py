@@ -200,18 +200,22 @@ def ribbon():
 
 
 def portrait():
-    """Retrato: PNG sepia restaurado (por defecto) o SVG ilustrado; ambos de 942 x 1200."""
-    archivo = HERE / os.environ.get("RETRATO", "retrato-foto.png")
-    vb_w, vb_h = 942, 1200
-    w = 432
-    s = w / vb_w
-    x0 = CX - 0.49 * w
-    y0 = 258
+    """Retrato dentro del medallón. Por defecto, la ilustración de la biblioteca
+    de INFRAVENZ vectorizada; también acepta un PNG con transparencia."""
+    archivo = HERE / os.environ.get("RETRATO", "retrato-ilustracion.svg")
+    w = 404
     if archivo.suffix == ".png":
+        from PIL import Image
+        vb_w, vb_h = Image.open(archivo).size
+        s = w / vb_w
         data = base64.b64encode(archivo.read_bytes()).decode()
-        return (f'<image x="{f(x0)}" y="{f(y0)}" width="{f(w)}" height="{f(vb_h * s)}" '
+        return (f'<image x="{f(CX - 0.49 * w)}" y="258" width="{f(w)}" height="{f(vb_h * s)}" '
                 f'href="data:image/png;base64,{data}"/>')
     src = archivo.read_text()
+    vb_w, vb_h = (float(v) for v in re.search(r'viewBox="0 0 ([\d.]+) ([\d.]+)"', src).groups())
+    s = w / vb_w
+    x0 = CX - 0.5 * w
+    y0 = 262
     body = re.search(r"<svg[^>]*>(.*)</svg>", src, re.S).group(1)
     paths = re.sub(r"<\?xml[^>]*>|<!--.*?-->", "", body, flags=re.S).strip()
     return f'<g transform="translate({f(x0)},{f(y0)}) scale({s:.5f})">\n{paths}\n</g>'
