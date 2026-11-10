@@ -18,10 +18,14 @@ from fontTools.ttLib import TTFont
 
 HERE = Path(__file__).resolve().parent
 OUT = Path(os.environ.get("SALIDA", HERE.parent / "infravenz-logo.svg"))
-FONT = TTFont(HERE / "Cinzel-700.ttf")
-GLYPHS = FONT.getGlyphSet()
-CMAP = FONT.getBestCmap()
-UPM = FONT["head"].unitsPerEm
+
+
+def cargar_fuente(nombre):
+    t = TTFont(HERE / nombre)
+    return t.getGlyphSet(), t.getBestCmap(), t["head"].unitsPerEm
+
+
+CINZEL = cargar_fuente("Cinzel-700.ttf")
 
 # Paleta
 GOLD_HI, GOLD, GOLD_LO, GOLD_EDGE = "#FCE597", "#E3AE2F", "#B47A14", "#7A4E06"
@@ -41,8 +45,9 @@ def f(v):
 
 
 # ---------------------------------------------------------------- texto
-def glyph_path(ch, size, x, y, rot):
+def glyph_path(ch, size, x, y, rot, font=CINZEL):
     """Trazado de un glifo con su centro de avance en (x, y) y giro rot (°)."""
+    GLYPHS, CMAP, UPM = font
     name = CMAP[ord(ch)]
     adv = GLYPHS[name].width
     s = size / UPM
@@ -57,7 +62,8 @@ def glyph_path(ch, size, x, y, rot):
     return pen.getCommands()
 
 
-def text_on_arc(text, size, r, center_deg, up_outward, tracking=0.0, cx=CX, cy=CY):
+def text_on_arc(text, size, r, center_deg, up_outward, tracking=0.0, cx=CX, cy=CY, font=CINZEL):
+    GLYPHS, CMAP, UPM = font
     s = size / UPM
     advs = [GLYPHS[CMAP[ord(ch)]].width * s + tracking for ch in text]
     total = sum(advs) - tracking
@@ -74,7 +80,7 @@ def text_on_arc(text, size, r, center_deg, up_outward, tracking=0.0, cx=CX, cy=C
         if ch == " ":
             continue
         x, y = pol(r, th, cx, cy)
-        cmds.append(glyph_path(ch, size, x, y, rot))
+        cmds.append(glyph_path(ch, size, x, y, rot, font))
     return " ".join(cmds)
 
 

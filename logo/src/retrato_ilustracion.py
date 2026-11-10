@@ -1,7 +1,8 @@
 #!/usr/bin/env python3
 """Vectoriza la ilustración del Prof. Francisco Ventura Zelaya publicada por la
 biblioteca de INFRAVENZ (src/ilustracion-biblioteca.png) y la pasa a tonos
-cálidos. Escribe src/retrato-ilustracion.svg (usado por generar_logo.py).
+cálidos (src/retrato-ilustracion.svg, para generar_logo.py) y a duotono
+verde (src/retrato-ilustracion-moderno.svg, para generar_logo_moderno.py).
 
 Requiere: numpy, pillow, vtracer.
 """
@@ -22,9 +23,17 @@ TONOS = {
     153: (226, 206, 182),
     179: (246, 237, 223),
 }
+# versión moderna: duotono verde institucional y crema
+TONOS_MODERNO = {
+    0: (18, 61, 36),
+    99: (36, 92, 58),
+    115: (58, 116, 78),
+    153: (246, 239, 225),
+    179: (255, 255, 255),
+}
 
 
-def main():
+def vectorizar(tonos, nombre):
     im = Image.open(HERE / "ilustracion-biblioteca.png").convert("RGBA")
     w, h = im.size
     im = im.resize((w * ESCALA, h * ESCALA), Image.LANCZOS)
@@ -37,13 +46,13 @@ def main():
     idx = np.asarray(idx_img)
     out = np.zeros(a.shape, np.uint8)
     for i, k in enumerate(claves):
-        out[idx == i, :3] = TONOS[k]
+        out[idx == i, :3] = tonos[k]
     alfa = np.asarray(Image.fromarray((a[..., 3] > 127).astype(np.uint8) * 255).filter(ImageFilter.ModeFilter(5)))
     out[..., 3] = alfa
     with tempfile.TemporaryDirectory() as tmp:
         png = Path(tmp) / "q.png"
         Image.fromarray(out).save(png)
-        svg_path = HERE / "retrato-ilustracion.svg"
+        svg_path = HERE / nombre
         vtracer.convert_image_to_svg_py(
             str(png), str(svg_path), colormode="color", hierarchical="stacked", mode="spline",
             filter_speckle=16, color_precision=8, layer_difference=4,
@@ -56,4 +65,5 @@ def main():
 
 
 if __name__ == "__main__":
-    main()
+    vectorizar(TONOS, "retrato-ilustracion.svg")
+    vectorizar(TONOS_MODERNO, "retrato-ilustracion-moderno.svg")
