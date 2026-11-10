@@ -199,12 +199,13 @@ def ribbon():
 
 def portrait():
     src = (HERE / "retrato.svg").read_text()
-    paths = "\n".join(re.findall(r"<path[^>]*/>", src))
-    vb_w, vb_h = 1350, 1182
-    w = 452
+    body = re.search(r"<svg[^>]*>(.*)</svg>", src, re.S).group(1)
+    paths = re.sub(r"<\?xml[^>]*>|<!--.*?-->", "", body, flags=re.S).strip()
+    vb_w = 942  # viewBox del retrato: 942 x 1200
+    w = 432
     s = w / vb_w
-    x0 = CX - w / 2
-    y0 = 322
+    x0 = CX - 0.49 * w
+    y0 = 258
     return f'<g transform="translate({f(x0)},{f(y0)}) scale({s:.5f})">\n{paths}\n</g>'
 
 

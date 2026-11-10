@@ -7,6 +7,7 @@ suavizado conservando bordes -> posterizado en 4 tonos -> trazado con vtracer.
 
 Requiere: pillow, numpy, opencv-python-headless, vtracer.
 """
+import re
 import sys
 from pathlib import Path
 
@@ -24,7 +25,7 @@ SCALE = 6
 CROP = (228, 40, 385, 240)  # x0, y0, x1, y1: el cuadro dentro del marco dorado
 
 # Tonos (de oscuro a claro): carbón cálido, sepia, piel clara, luz
-PALETTE = [(38, 32, 28), (104, 88, 72), (186, 168, 142), (246, 238, 222)]
+PALETTE = [(34, 29, 26), (88, 74, 62), (150, 132, 112), (205, 189, 166), (247, 240, 226)]
 
 
 def main():
@@ -34,52 +35,72 @@ def main():
     img = cv2.resize(img, None, fx=SCALE, fy=SCALE, interpolation=cv2.INTER_LANCZOS4)
     h, w = img.shape[:2]
 
-    # --- máscara de la figura con GrabCut, sembrada con zonas seguras
-    mask = np.full((h, w), cv2.GC_PR_BGD, np.uint8)
-    s = SCALE / 4  # las coordenadas de abajo se midieron en la ampliación x4
-    def P(pts):
-        return (np.array(pts, np.float32) * s).astype(np.int32)
-    figura = P([(215, 80), (330, 30), (445, 90), (470, 220), (455, 420),
-                (600, 540), (628, 800), (30, 800), (40, 430), (175, 370),
-                (150, 230)])
-    cv2.fillPoly(mask, [figura], cv2.GC_PR_FGD)
-    cara = P([(240, 120), (330, 70), (420, 120), (440, 300), (400, 440),
-              (300, 470), (210, 380), (200, 250)])
-    traje = P([(80, 600), (560, 600), (600, 790), (60, 790)])
-    cv2.fillPoly(mask, [cara, traje], cv2.GC_FGD)
-    fondo = [P([(0, 0), (628, 0), (628, 20), (0, 20)]),
-             P([(0, 0), (120, 0), (40, 330), (0, 360)]),
-             P([(530, 0), (628, 0), (628, 470), (520, 380)])]
-    cv2.fillPoly(mask, fondo, cv2.GC_BGD)
-    bgd, fgd = np.zeros((1, 65), np.float64), np.zeros((1, 65), np.float64)
-    cv2.grabCut(img, mask, None, bgd, fgd, 6, cv2.GC_INIT_WITH_MASK)
-    fg = np.where((mask == cv2.GC_FGD) | (mask == cv2.GC_PR_FGD), 255, 0).astype(np.uint8)
-    # suavizar el contorno y quedarse con la región mayor
-    fg = cv2.morphologyEx(fg, cv2.MORPH_OPEN, np.ones((9, 9), np.uint8))
-    fg = cv2.morphologyEx(fg, cv2.MORPH_CLOSE, np.ones((21, 21), np.uint8))
-    n, lab, stats, _ = cv2.connectedComponentsWithStats(fg)
-    if n > 1:
-        big = 1 + int(np.argmax(stats[1:, cv2.CC_STAT_AREA]))
-        fg = np.where(lab == big, 255, 0).astype(np.uint8)
-    fg = cv2.GaussianBlur(fg, (0, 0), 6)
-    fg = np.where(fg > 127, 255, 0).astype(np.uint8)
+    # --- silueta de la figura trazada a mano (coordenadas medidas en la ampliación x4)
+    k = SCALE / 4
+    silueta = [(150, 215), (172, 205), (196, 170), (205, 120), (230, 75), (290, 42),
+               (360, 34), (420, 55), (455, 100), (466, 170), (470, 250), (462, 330),
+               (450, 400), (440, 455), (462, 486), (520, 512), (580, 552), (618, 600),
+               (622, 772), (48, 772), (50, 520), (58, 446), (104, 410), (172, 376),
+               (186, 352), (160, 322), (144, 268)]
+    pts = np.array(silueta, np.float32) * k
+    for _ in range(3):  # suavizado de Chaikin
+        a, b = pts, np.roll(pts, -1, axis=0)
+        pts = np.empty((len(a) * 2, 2), np.float32)
+        pts[0::2], pts[1::2] = 0.75 * a + 0.25 * b, 0.25 * a + 0.75 * b
+    fg = np.zeros((h, w), np.uint8)
+    cv2.fillPoly(fg, [pts.astype(np.int32)], 255)
 
     # --- tono: luminancia, contraste local y suavizado conservando bordes
     gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
     gray = cv2.bilateralFilter(gray, 15, 40, 12)
-    gray = cv2.createCLAHE(clipLimit=2.0, tileGridSize=(4, 4)).apply(gray)
-    gray = cv2.bilateralFilter(gray, 21, 30, 18)
-    vals = gray[fg > 0]
-    cuts = np.percentile(vals, [24, 50, 76])
-    levels = np.digitize(gray, cuts)
-    # filtro de moda para limpiar manchas pequeñas
-    for _ in range(2):
-        votes = np.stack([cv2.blur((levels == k).astype(np.float32), (15, 15)) for k in range(4)])
-        levels = np.argmax(votes, axis=0)
+    gray = cv2.createCLAHE(clipLimit=2.4, tileGridSize=(4, 4)).apply(gray)
+
+    # zona de la cabeza (por encima de la línea del mentón) y zona del torso
+    barbilla = [(0, 0), (628, 0), (628, 420), (470, 420), (450, 440), (400, 472),
+                (330, 484), (250, 444), (172, 376), (0, 376)]
+    cabeza = np.zeros((h, w), np.uint8)
+    cv2.fillPoly(cabeza, [(np.array(barbilla, np.float32) * k).astype(np.int32)], 255)
+    cabeza = cv2.bitwise_and(cabeza, fg)
+    torso = cv2.bitwise_and(cv2.bitwise_not(cabeza), fg)
+    # cabello: por encima de la línea de nacimiento del pelo
+    linea_pelo = [(0, 0), (628, 0), (628, 180), (462, 178), (420, 132), (330, 118),
+                  (250, 138), (200, 196), (0, 196)]
+    pelo = np.zeros((h, w), np.uint8)
+    cv2.fillPoly(pelo, [(np.array(linea_pelo, np.float32) * k).astype(np.int32)], 255)
+    pelo = cv2.bitwise_and(pelo, cabeza)
+    cara = cv2.bitwise_and(cabeza, cv2.bitwise_not(pelo))
+
+    def posterizar(zona, cortes, suave, moda):
+        g = cv2.bilateralFilter(gray, suave, 30, suave)
+        g = cv2.GaussianBlur(g, (0, 0), suave / 6)
+        lv = np.digitize(g, np.percentile(g[zona > 0], cortes))
+        for _ in range(2):  # filtro de moda para limpiar manchas
+            votes = np.stack([cv2.blur((lv == i).astype(np.float32), (moda, moda))
+                              for i in range(len(cortes) + 1)])
+            lv = np.argmax(votes, axis=0)
+        return lv
+
+    # cabeza: 4 tonos (sombra, medio, piel, luz), detalle fino
+    lv_cab = posterizar(cara, [7, 32, 66], 15, 11)
+    lv_pelo = posterizar(pelo, [40, 78], 15, 13)
+    # torso: saco oscuro, solapa en tono medio, camisa clara; muy suavizado
+    lv_tor = posterizar(torso, [70, 84], 31, 41)
+    mapa_cab = np.array([0, 2, 3, 4])
+    mapa_tor = np.array([0, 1, 4])
+    mapa_pelo = np.array([1, 2, 3])
+    # fuera de la camisa, el saco queda en un solo tono oscuro
+    camisa_pts = [(172, 372), (240, 470), (300, 600), (335, 650), (402, 668),
+                  (412, 520), (446, 462), (400, 472), (330, 484), (250, 444)]
+    camisa = np.zeros((h, w), np.uint8)
+    cv2.fillPoly(camisa, [(np.array(camisa_pts, np.float32) * k).astype(np.int32)], 255)
+    camisa = cv2.GaussianBlur(camisa, (0, 0), 4)
+    lv_tor = np.where(camisa > 127, lv_tor, 0)
+    levels = np.where(cabeza > 0, mapa_cab[lv_cab], mapa_tor[lv_tor])
+    levels = np.where(pelo > 0, mapa_pelo[lv_pelo], levels)
 
     out = np.zeros((h, w, 4), np.uint8)
-    for k, (r, g, b) in enumerate(PALETTE):
-        out[levels == k] = (r, g, b, 255)
+    for i, (r, g, b) in enumerate(PALETTE):
+        out[levels == i] = (r, g, b, 255)
     out[fg == 0] = (0, 0, 0, 0)
     png = WORK / "retrato_posterizado.png"
     cv2.imwrite(str(png), cv2.cvtColor(out, cv2.COLOR_RGBA2BGRA))
@@ -91,6 +112,26 @@ def main():
     )
     svg = OUT.read_text()
     svg = svg.replace(f'width="{w}" height="{h}"', f'viewBox="0 0 {w} {h}"')
+    # lentes redondos de montura fina (coordenadas en la ampliación x4)
+    c = "#221D1A"
+    lentes = (
+        f'<g fill="none" stroke="{c}" stroke-width="{4.5 * k:.1f}" stroke-linecap="round" '
+        f'transform="scale({k})">'
+        '<ellipse cx="325" cy="263" rx="49" ry="40"/>'
+        '<ellipse cx="428" cy="277" rx="37" ry="39" transform="rotate(6 428 277)"/>'
+        '<path d="M374,258 Q383,249 391,263"/>'
+        '<path d="M277,254 L206,236"/>'
+        '</g>'
+        f'<path d="M112,420 Q205,520 262,700" fill="none" '
+        f'stroke="#5A4B40" stroke-width="{4 * k:.1f}" stroke-linecap="round" transform="scale({k})"/>'
+        f'<path d="M302,384 Q342,399 382,388" fill="none" stroke="#5C4B3F" '
+        f'stroke-width="{4 * k:.1f}" stroke-linecap="round" transform="scale({k})"/>'
+    )
+    svg = svg.replace("</svg>", lentes + "\n</svg>")
+    # contorno de la silueta, debajo de las capas, para separarla del fondo claro
+    d = "M" + " L".join(f"{x:.1f},{y:.1f}" for x, y in pts) + " Z"
+    contorno = f'<path d="{d}" fill="none" stroke="#221D1A" stroke-width="{9 * k:.1f}" stroke-linejoin="round"/>'
+    svg = re.sub(r"(<svg[^>]*>)", lambda m: m.group(1) + "\n" + contorno, svg, count=1)
     OUT.write_text(svg)
     print("escrito", OUT, (w, h))
 
