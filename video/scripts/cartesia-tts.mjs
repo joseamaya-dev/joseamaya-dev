@@ -2,10 +2,12 @@
 // Uso: node scripts/cartesia-tts.mjs ep01 [--force] [--only=3,5]
 // La clave se toma de CARTESIA_API_KEY; en la sesión en la nube la inyecta el proxy.
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'fs';
-import { EP01 } from '../src/ep01.ts';
+import { EP01 } from '../src/episodes/ep01.ts';
+import { EP02 } from '../src/episodes/ep02.ts';
 
-const EPISODES = { ep01: EP01 };
+const EPISODES = { ep01: EP01, ep02: EP02 };
 const ep = EPISODES[process.argv[2] || 'ep01'];
+if (!ep) throw new Error(`Episodio desconocido: ${process.argv[2]}`);
 const force = process.argv.includes('--force');
 const onlyArg = process.argv.find((a) => a.startsWith('--only='));
 const only = onlyArg ? new Set(onlyArg.slice(7).split(',').map(Number)) : null;

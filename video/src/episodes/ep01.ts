@@ -2,19 +2,12 @@
 // Adaptación libre (con palabras propias) del primer intercambio de «El día de la defensa».
 // Citas bíblicas: Reina-Valera 1909 (dominio público), con ortografía actualizada.
 
-export type SpeakerId = 'juez' | 'cook' | 'baker' | 'rios';
+import type { EpisodeData } from './types';
 
-export type Line = {
-  speaker: SpeakerId;
-  text: string;
-  highlight?: string; // frase que se resalta en amarillo
-  ref?: string; // referencia bíblica que aparece como etiqueta
-};
-
-export const EP01 = {
+export const EP01: EpisodeData = {
   id: 'ep01',
   number: 1,
-  hook: ['¿Ya fue revelada ', 'TODA', ' la verdad?'] as const,
+  hook: ['¿Ya fue revelada ', 'TODA', ' la verdad?'],
   next: 'Próximo episodio: ¿Tiene Dios un cuerpo?',
   lines: [
     { speaker: 'juez', text: 'Padre Cook, la acusación tiene la palabra.' },
@@ -49,5 +42,5 @@ export const EP01 = {
       ref: 'Amós 3:7',
     },
     { speaker: 'juez', text: 'La defensa ha respondido. Continuemos.' },
-  ] as Line[],
+  ],
 };

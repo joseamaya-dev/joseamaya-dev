@@ -1,6 +1,6 @@
-# Episodio 1 — Voces para Cartesia
+# Voces para Cartesia
 
-Episodio: **«¿Ya fue revelada TODA la verdad?»**. Son 8 líneas y 4 personajes.
+Los guiones de cada episodio están en `src/episodes/epNN.ts`. Abajo están las líneas del episodio 1 como ejemplo.
 
 ## Voces (español latino, ninguna es «Ramón»)
 
@@ -12,10 +12,12 @@ Usa siempre la misma voz para cada personaje, en todos los episodios.
 | Padre Cook | Hombre adulto, grave y firme, un poco solemne | Andres – Trusted Voice (MX) |
 | Élder Baker | Hombre joven (unos 20 años), claro y amable | Santiago – Modern Navigator (MX) |
 | Élder Ríos | Hombre joven, cálido, distinto de Baker | Mateo – Friendly Host (MX) |
+| Ministro (Iglesia de Cristo) | Adulto, analítico, argumentativo | David – System Architect (MX) |
+| Ministro metodista | Mayor, relajado, cálido | Jorge – Regular Guy (MX) |
 
 Idioma: **Spanish**. Busca voces latinoamericanas o mexicanas y prueba antes cada una con una línea corta.
 
-## Líneas (copiar y pegar tal cual)
+## Líneas del episodio 1
 
 | N.º | Archivo | Personaje | Texto |
 |---|---|---|---|
@@ -30,23 +32,25 @@ Idioma: **Spanish**. Busca voces latinoamericanas o mexicanas y prueba antes cad
 
 ## Cómo se generan
 
-Los IDs de las voces están en `src/voices.json`. La generación es automática con la API de Cartesia:
+Los IDs de las voces están en `src/voices.json`. Un acusador nuevo necesita su voz ahí antes de generar.
 
 ```bash
 cd video
-NODE_USE_ENV_PROXY=1 NODE_EXTRA_CA_CERTS=/root/.ccr/ca-bundle.crt \
-  node scripts/cartesia-tts.mjs ep01            # añade --force o --only=3,5 para regenerar líneas
-for f in public/audio/ep01/0*.wav; do            # normaliza volumen y corrige la cabecera WAV
-  npx remotion ffmpeg -y -loglevel error -i $f -af loudnorm=I=-16:TP=-1.5:LRA=11 -ar 44100 -ac 1 -c:a pcm_s16le tmp.wav && mv tmp.wav $f
-done
-node scripts/sync-audio.mjs ep01                 # duración y movimiento de boca por fotograma
-npm run render                                    # genera out/ep01.mp4
+scripts/voces.sh ep02                      # genera con Cartesia, normaliza volumen y sincroniza la boca
+scripts/voces.sh ep02 --only=3 --force     # regenera solo la línea 3
+npm run render -- Ep02 out/ep02.mp4        # genera el video
 ```
 
-Fuera de la nube, define `CARTESIA_API_KEY` en lugar de las dos variables del proxy.
+Fuera de la nube, define `CARTESIA_API_KEY` antes de ejecutar `scripts/voces.sh`.
+
+## Nuevo episodio
+
+1. Copia `src/episodes/ep02.ts` como `ep03.ts` y escribe el gancho, las líneas y el próximo episodio.
+2. Regístralo en `src/episodes/index.ts` y en `EPISODES` de `scripts/cartesia-tts.mjs`.
+3. Ejecuta `scripts/voces.sh ep03` y `npm run render -- Ep03 out/ep03.mp4`.
 
 ## Si prefieres generar los audios a mano
 
 1. Descarga cada línea en **WAV o MP3**, sin silencio largo al principio ni al final.
 2. Renómbralas `01` … `08` y ponlas en `video/public/audio/ep01/`.
-3. Ejecuta los pasos de normalización, `sync-audio` y `render` de arriba.
+3. Ejecuta la normalización y `node scripts/sync-audio.mjs ep01`, y después el render.

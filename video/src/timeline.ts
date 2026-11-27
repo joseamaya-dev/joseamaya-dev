@@ -1,5 +1,5 @@
 import manifest from './audio-manifest.json';
-import type { Line } from './ep01';
+import type { Line } from './episodes/types';
 
 export const FPS = 30;
 export const INTRO = 24; // fotogramas antes de la primera línea (gancho)

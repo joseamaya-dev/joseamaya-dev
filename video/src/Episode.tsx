@@ -11,31 +11,39 @@ import {
   useVideoConfig,
 } from 'remotion';
 import { ACCUSERS, characterSVG, JUDGE, MISSIONARIES } from './characters';
-import type { SpeakerId } from './ep01';
-import { EP01 } from './ep01';
+import type { EpisodeData, SpeakerId } from './episodes';
 import { buildTimeline, INTRO, OUTRO, type TimedLine } from './timeline';
 
 type Mouth = 'neutral' | 'mid' | 'open' | 'smile';
 
-const COOK = ACCUSERS.find((a) => a.id === 'cook')!;
 const [BAKER, RIOS] = MISSIONARIES;
+const FIXED = new Set(['juez', 'baker', 'rios']);
+const isAccuser = (id: SpeakerId | null) => !!id && !FIXED.has(id);
 
-const SPEAKERS: Record<SpeakerId, { name: string; role: string; color: string }> = {
-  juez: { name: 'EL JUEZ', role: 'Rabino ortodoxo', color: '#8A6D3B' },
-  cook: { name: 'PADRE COOK', role: 'Ortodoxo griego · Acusación', color: '#8A3B2E' },
-  baker: { name: 'ÉLDER BAKER', role: 'Defensa', color: '#24406B' },
-  rios: { name: 'ÉLDER RÍOS', role: 'Defensa', color: '#24406B' },
-};
+function accuser(id: string) {
+  const c = ACCUSERS.find((a) => a.id === id);
+  if (!c) throw new Error(`Acusador desconocido: ${id}`);
+  return c;
+}
+
+function speakerLabel(id: SpeakerId): { name: string; role: string; color: string } {
+  if (id === 'juez') return { name: 'EL JUEZ', role: 'Rabino ortodoxo', color: '#8A6D3B' };
+  if (id === 'baker') return { name: 'ÉLDER BAKER', role: 'Defensa', color: '#24406B' };
+  if (id === 'rios') return { name: 'ÉLDER RÍOS', role: 'Defensa', color: '#24406B' };
+  const c = accuser(id);
+  return { name: String(c.name).toUpperCase(), role: `${c.role} · Acusación`, color: '#8A3B2E' };
+}
 
 // ---------- Cámara ----------
 type Cam = { s: number; ox: number; oy: number };
 const WIDE: Cam = { s: 1, ox: 540, oy: 1100 };
-const CAMS: Record<SpeakerId, Cam> = {
+const CAMS: Record<string, Cam> = {
   juez: { s: 1.32, ox: 540, oy: 640 },
-  cook: { s: 1.16, ox: 220, oy: 1180 },
+  accuser: { s: 1.16, ox: 220, oy: 1180 },
   baker: { s: 1.12, ox: 680, oy: 1180 },
   rios: { s: 1.12, ox: 860, oy: 1180 },
 };
+const camFor = (id: SpeakerId | null): Cam => (!id ? WIDE : CAMS[isAccuser(id) ? 'accuser' : id]);
 const lerp = (a: number, b: number, t: number) => a + (b - a) * t;
 function camAt(from: Cam, to: Cam, local: number): Cam {
   const t = interpolate(local, [0, 14], [0, 1], {
@@ -139,21 +147,45 @@ const Actor: React.FC<{
 };
 
 // ---------- Escenario ----------
-const Stage: React.FC<{ abs: number; cam: Cam; speaker: SpeakerId | null; mouth: Mouth }> = ({
+// El lugar de la acusación (izquierda) lo ocupa el último acusador que habló.
+// Si cambia de acusador, se relevan con un fundido en el mismo lugar.
+type Slot = { from: string; to: string; local: number };
+
+const Stage: React.FC<{ abs: number; cam: Cam; speaker: SpeakerId | null; mouth: Mouth; slot: Slot }> = ({
   abs,
   cam,
   speaker,
   mouth,
+  slot,
 }) => {
   const m = (id: SpeakerId): Mouth => (speaker === id ? mouth : 'neutral');
+  const ease = { extrapolateLeft: 'clamp', extrapolateRight: 'clamp', easing: Easing.inOut(Easing.cubic) } as const;
+  const changing = slot.from !== slot.to;
+  // Relevo en el mismo lugar: el anterior baja y se desvanece mientras el nuevo sube.
+  const outT = changing ? interpolate(slot.local, [0, 10], [0, 1], ease) : 1;
+  const inT = changing ? interpolate(slot.local, [2, 12], [0, 1], ease) : 1;
   return (
-    <AbsoluteFill
-      style={{ transform: `scale(${cam.s})`, transformOrigin: `${cam.ox}px ${cam.oy}px` }}
-    >
+    <AbsoluteFill style={{ transform: `scale(${cam.s})`, transformOrigin: `${cam.ox}px ${cam.oy}px` }}>
       <Courtroom />
       <Actor c={JUDGE} x={390} y={470} w={300} frame={abs} seed={1} mouth={m('juez')} talking={speaker === 'juez'} />
       <Bench />
-      <Actor c={COOK} x={-30} y={830} w={540} frame={abs} seed={2} mouth={m('cook')} talking={speaker === 'cook'} />
+      {changing && outT < 1 ? (
+        <div style={{ position: 'absolute', inset: 0, opacity: 1 - outT }}>
+          <Actor c={accuser(slot.from)} x={-30} y={830 + outT * 160} w={540} frame={abs} seed={2} mouth="neutral" talking={false} />
+        </div>
+      ) : null}
+      <div style={{ position: 'absolute', inset: 0, opacity: inT }}>
+        <Actor
+          c={accuser(slot.to)}
+          x={-30}
+          y={830 + (1 - inT) * 160}
+          w={540}
+          frame={abs}
+          seed={2}
+          mouth={m(slot.to)}
+          talking={speaker === slot.to}
+        />
+      </div>
       <Actor c={RIOS} x={760} y={975} w={390} frame={abs} seed={3} mouth={m('rios')} talking={speaker === 'rios'} />
       <Actor c={BAKER} x={540} y={960} w={400} frame={abs} seed={4} mouth={m('baker')} talking={speaker === 'baker'} />
       <Desk />
@@ -164,7 +196,7 @@ const Stage: React.FC<{ abs: number; cam: Cam; speaker: SpeakerId | null; mouth:
 // ---------- Subtítulo ----------
 const Caption: React.FC<{ line: TimedLine; local: number }> = ({ line, local }) => {
   const { fps } = useVideoConfig();
-  const sp = SPEAKERS[line.speaker];
+  const sp = speakerLabel(line.speaker);
   const enter = interpolate(local, [0, 6], [0, 1], { extrapolateRight: 'clamp' });
 
   // Palabra actual según el avance de la voz (proporcional a los caracteres).
@@ -254,43 +286,41 @@ function levelToMouth(level: number): Mouth {
   return level > 0.55 ? 'open' : level > 0.18 ? 'mid' : 'neutral';
 }
 
-const LineView: React.FC<{ line: TimedLine; prev: SpeakerId | null; mouth: Mouth; local: number }> = ({
-  line,
-  prev,
-  mouth,
-  local,
-}) => {
-  const cam = camAt(prev ? CAMS[prev] : WIDE, CAMS[line.speaker], local);
+type LineProps = { line: TimedLine; prev: SpeakerId | null; slot: { from: string; to: string } };
+
+const LineView: React.FC<LineProps & { mouth: Mouth; local: number }> = ({ line, prev, slot, mouth, local }) => {
+  const cam = camAt(camFor(prev), camFor(line.speaker), local);
   return (
     <AbsoluteFill>
-      <Stage abs={line.start + local} cam={cam} speaker={line.speaker} mouth={mouth} />
+      <Stage abs={line.start + local} cam={cam} speaker={line.speaker} mouth={mouth} slot={{ ...slot, local }} />
       <Caption line={line} local={local} />
     </AbsoluteFill>
   );
 };
 
-const SilentLine: React.FC<{ line: TimedLine; prev: SpeakerId | null }> = ({ line, prev }) => {
+const SilentLine: React.FC<LineProps> = (props) => {
   const local = useCurrentFrame();
-  return <LineView line={line} prev={prev} local={local} mouth={syntheticMouth(local, line.speech)} />;
+  return <LineView {...props} local={local} mouth={syntheticMouth(local, props.line.speech)} />;
 };
 
-const AudioLine: React.FC<{ line: TimedLine; prev: SpeakerId | null }> = ({ line, prev }) => {
+const AudioLine: React.FC<LineProps> = (props) => {
+  const { line } = props;
   const local = useCurrentFrame();
   const env = line.env;
   const mouth: Mouth = env ? levelToMouth(env[local] ?? 0) : syntheticMouth(local, line.speech);
   return (
     <>
       <Audio src={staticFile(line.audio!)} />
-      <LineView line={line} prev={prev} local={local} mouth={mouth} />
+      <LineView {...props} local={local} mouth={mouth} />
     </>
   );
 };
 
 // ---------- Capas fijas ----------
-const Header: React.FC<{ frame: number }> = ({ frame }) => {
+const Header: React.FC<{ frame: number; ep: EpisodeData }> = ({ frame, ep }) => {
   const { fps } = useVideoConfig();
   const pop = spring({ frame, fps, config: { damping: 12 } });
-  const [a, b, c] = EP01.hook;
+  const [a, b, c] = ep.hook;
   return (
     <>
       <div
@@ -302,7 +332,7 @@ const Header: React.FC<{ frame: number }> = ({ frame }) => {
         }}
       />
       <div style={{ position: 'absolute', left: 60, top: 70, color: '#E8C766', fontSize: 26, fontWeight: 700, letterSpacing: 4 }}>
-        EL DÍA DE LA DEFENSA · EP. {EP01.number}
+        EL DÍA DE LA DEFENSA · EP. {ep.number}
       </div>
       <div
         style={{
@@ -345,7 +375,7 @@ const Progress: React.FC<{ frame: number; total: number }> = ({ frame, total }) 
   </>
 );
 
-const EndCard: React.FC = () => {
+const EndCard: React.FC<{ next: string }> = ({ next }) => {
   const local = useCurrentFrame();
   const { fps } = useVideoConfig();
   const fade = interpolate(local, [0, 12], [0, 1], { extrapolateRight: 'clamp' });
@@ -367,7 +397,7 @@ const EndCard: React.FC = () => {
             padding: '20px 30px',
           }}
         >
-          {EP01.next}
+          {next}
         </div>
         <div style={{ fontSize: 24, color: '#A89C8C', marginTop: 90, lineHeight: 1.4 }}>
           Adaptación libre del libro «El día de la defensa» de A. Melvin McDonald.
@@ -379,36 +409,54 @@ const EndCard: React.FC = () => {
   );
 };
 
-const Idle: React.FC<{ from: SpeakerId | null; to: SpeakerId | null; offset: number }> = ({ from, to, offset }) => {
+const Idle: React.FC<{ from: SpeakerId | null; to: SpeakerId | null; offset: number; slot: string }> = ({
+  from,
+  to,
+  offset,
+  slot,
+}) => {
   const local = useCurrentFrame();
-  const cam = camAt(from ? CAMS[from] : WIDE, to ? CAMS[to] : WIDE, local);
-  return <Stage abs={offset + local} cam={cam} speaker={null} mouth="neutral" />;
+  const cam = camAt(camFor(from), camFor(to), local);
+  return <Stage abs={offset + local} cam={cam} speaker={null} mouth="neutral" slot={{ from: slot, to: slot, local }} />;
 };
 
 // ---------- Episodio ----------
-export const Episode: React.FC = () => {
+export const Episode: React.FC<{ ep: EpisodeData }> = ({ ep }) => {
   const frame = useCurrentFrame();
-  const tl = buildTimeline(EP01.id, EP01.lines);
+  const tl = buildTimeline(ep.id, ep.lines);
   const last = tl.lines[tl.lines.length - 1].speaker;
+
+  // Acusador que ocupa el lugar de la izquierda en cada línea.
+  const first = ep.lines.find((l) => isAccuser(l.speaker))?.speaker ?? 'cook';
+  const slotAt: string[] = [];
+  let cur = first;
+  for (const l of tl.lines) {
+    if (isAccuser(l.speaker)) cur = l.speaker;
+    slotAt.push(cur);
+  }
+
   return (
     <AbsoluteFill style={{ background: '#3B2A1E', fontFamily: 'Inter, system-ui, sans-serif' }}>
       <Sequence durationInFrames={INTRO}>
-        <Idle from={null} to={null} offset={0} />
+        <Idle from={null} to={null} offset={0} slot={first} />
       </Sequence>
-      {tl.lines.map((line, i) => (
-        <Sequence key={i} from={line.start} durationInFrames={line.dur}>
-          {line.audio ? (
-            <AudioLine line={line} prev={i ? tl.lines[i - 1].speaker : null} />
-          ) : (
-            <SilentLine line={line} prev={i ? tl.lines[i - 1].speaker : null} />
-          )}
-        </Sequence>
-      ))}
+      {tl.lines.map((line, i) => {
+        const props = {
+          line,
+          prev: i ? tl.lines[i - 1].speaker : null,
+          slot: { from: i ? slotAt[i - 1] : first, to: slotAt[i] },
+        };
+        return (
+          <Sequence key={i} from={line.start} durationInFrames={line.dur}>
+            {line.audio ? <AudioLine {...props} /> : <SilentLine {...props} />}
+          </Sequence>
+        );
+      })}
       <Sequence from={tl.linesEnd} durationInFrames={OUTRO}>
-        <Idle from={last} to={null} offset={tl.linesEnd} />
-        <EndCard />
+        <Idle from={last} to={null} offset={tl.linesEnd} slot={slotAt[slotAt.length - 1]} />
+        <EndCard next={ep.next} />
       </Sequence>
-      <Header frame={frame} />
+      <Header frame={frame} ep={ep} />
       <Progress frame={frame} total={tl.total} />
     </AbsoluteFill>
   );

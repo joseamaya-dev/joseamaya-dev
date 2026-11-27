@@ -4,8 +4,8 @@
   "type": "module",
   "scripts": {
     "studio": "remotion studio",
-    "render": "remotion render src/index.ts Ep01 out/ep01.mp4 --browser-executable=/opt/pw-browsers/chromium_headless_shell-1243/chrome-headless-shell-linux64/chrome-headless-shell",
-    "still": "remotion still src/index.ts Ep01 out/frame.png --browser-executable=/opt/pw-browsers/chromium_headless_shell-1243/chrome-headless-shell-linux64/chrome-headless-shell"
+    "render": "remotion render src/index.ts --browser-executable=/opt/pw-browsers/chromium_headless_shell-1243/chrome-headless-shell-linux64/chrome-headless-shell",
+    "still": "remotion still src/index.ts --browser-executable=/opt/pw-browsers/chromium_headless_shell-1243/chrome-headless-shell-linux64/chrome-headless-shell"
   },
   "dependencies": {
     "@remotion/cli": "^4.0.547",

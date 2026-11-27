@@ -1,6 +1,26 @@
 {
-  "juez": { "name": "Alejandro - Calm Mentor", "id": "3a35daa1-ba81-451c-9b21-59332e9db2f3" },
-  "cook": { "name": "Andres - Trusted Voice", "id": "d46e87a1-7c6d-4b18-9359-926f4a35ffdf" },
-  "baker": { "name": "Santiago - Modern Navigator", "id": "bef24f4f-adc9-4cef-acbf-cc1ceb98224b" },
-  "rios": { "name": "Mateo - Friendly Host", "id": "2fc4f1ec-bfd0-46f1-8e6d-d4279eaaf838" }
+  "juez": {
+    "name": "Alejandro - Calm Mentor",
+    "id": "3a35daa1-ba81-451c-9b21-59332e9db2f3"
+  },
+  "cook": {
+    "name": "Andres - Trusted Voice",
+    "id": "d46e87a1-7c6d-4b18-9359-926f4a35ffdf"
+  },
+  "baker": {
+    "name": "Santiago - Modern Navigator",
+    "id": "bef24f4f-adc9-4cef-acbf-cc1ceb98224b"
+  },
+  "rios": {
+    "name": "Mateo - Friendly Host",
+    "id": "2fc4f1ec-bfd0-46f1-8e6d-d4279eaaf838"
+  },
+  "iglesiacristo": {
+    "name": "David - System Architect",
+    "id": "f82acaf6-ee56-417f-8f7f-bcd72dad3022"
+  },
+  "metodista": {
+    "name": "Jorge - Regular Guy",
+    "id": "7b001dff-b8b2-4da7-92e4-5c794798effa"
+  }
 }
