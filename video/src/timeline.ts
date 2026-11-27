@@ -12,9 +12,10 @@ export type TimedLine = Line & {
   speech: number; // fotogramas que dura la voz
   dur: number; // speech + pausa
   audio?: string; // ruta dentro de /public
+  env?: number[]; // volumen por fotograma (0–1) para la boca
 };
 
-type Manifest = Record<string, Record<string, { file: string; seconds: number }>>;
+type Manifest = Record<string, Record<string, { file: string; seconds: number; env?: number[] | null }>>;
 
 // Sin audio: duración estimada a ~2.8 palabras por segundo.
 function estimateSeconds(text: string) {
@@ -36,6 +37,7 @@ export function buildTimeline(epId: string, lines: Line[]) {
       speech,
       dur: speech + GAP,
       audio: a ? `audio/${epId}/${a.file}` : undefined,
+      env: a?.env ?? undefined,
     };
     t += item.dur;
     return item;

@@ -8,10 +8,10 @@ Usa siempre la misma voz para cada personaje, en todos los episodios.
 
 | Personaje | Perfil de voz que hay que buscar en Cartesia | Voz elegida |
 |---|---|---|
-| El Juez (rabino) | Hombre mayor, grave, pausado, con autoridad | _(anotar)_ |
-| Padre Cook | Hombre adulto, grave y firme, un poco solemne | _(anotar)_ |
-| Élder Baker | Hombre joven (unos 20 años), claro y amable | _(anotar)_ |
-| Élder Ríos | Hombre joven, cálido, distinto de Baker | _(anotar)_ |
+| El Juez (rabino) | Hombre mayor, grave, pausado, con autoridad | Alejandro – Calm Mentor (MX) |
+| Padre Cook | Hombre adulto, grave y firme, un poco solemne | Andres – Trusted Voice (MX) |
+| Élder Baker | Hombre joven (unos 20 años), claro y amable | Santiago – Modern Navigator (MX) |
+| Élder Ríos | Hombre joven, cálido, distinto de Baker | Mateo – Friendly Host (MX) |
 
 Idioma: **Spanish**. Busca voces latinoamericanas o mexicanas y prueba antes cada una con una línea corta.
 
@@ -28,17 +28,25 @@ Idioma: **Spanish**. Busca voces latinoamericanas o mexicanas y prueba antes cad
 | 7 | `07.wav` | Élder Ríos | Por eso creemos que Dios sigue hablando hoy: «No hará nada el Señor Jehová, sin que revele su secreto a sus siervos los profetas». |
 | 8 | `08.wav` | Juez | La defensa ha respondido. Continuemos. |
 
-## Cómo entregarlos
+## Cómo se generan
 
-1. Descarga cada línea en **WAV o MP3**, sin silencio largo al principio ni al final.
-2. Renómbralas `01` … `08` con su extensión, por ejemplo `01.wav`.
-3. Súbelas al chat o ponlas en `video/public/audio/ep01/`.
-4. Después se ejecuta lo siguiente:
+Los IDs de las voces están en `src/voices.json`. La generación es automática con la API de Cartesia:
 
 ```bash
 cd video
-node scripts/sync-audio.mjs ep01   # mide la duración de cada audio
-npm run render                     # genera out/ep01.mp4 con voces
+NODE_USE_ENV_PROXY=1 NODE_EXTRA_CA_CERTS=/root/.ccr/ca-bundle.crt \
+  node scripts/cartesia-tts.mjs ep01            # añade --force o --only=3,5 para regenerar líneas
+for f in public/audio/ep01/0*.wav; do            # normaliza volumen y corrige la cabecera WAV
+  npx remotion ffmpeg -y -loglevel error -i $f -af loudnorm=I=-16:TP=-1.5:LRA=11 -ar 44100 -ac 1 -c:a pcm_s16le tmp.wav && mv tmp.wav $f
+done
+node scripts/sync-audio.mjs ep01                 # duración y movimiento de boca por fotograma
+npm run render                                    # genera out/ep01.mp4
 ```
 
-El video ajusta solo los tiempos, el movimiento de la boca y los subtítulos a la duración real de cada audio.
+Fuera de la nube, define `CARTESIA_API_KEY` en lugar de las dos variables del proxy.
+
+## Si prefieres generar los audios a mano
+
+1. Descarga cada línea en **WAV o MP3**, sin silencio largo al principio ni al final.
+2. Renómbralas `01` … `08` y ponlas en `video/public/audio/ep01/`.
+3. Ejecuta los pasos de normalización, `sync-audio` y `render` de arriba.

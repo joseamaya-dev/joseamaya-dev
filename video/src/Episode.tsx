@@ -10,7 +10,6 @@ import {
   useCurrentFrame,
   useVideoConfig,
 } from 'remotion';
-import { useAudioData, visualizeAudio } from '@remotion/media-utils';
 import { ACCUSERS, characterSVG, JUDGE, MISSIONARIES } from './characters';
 import type { SpeakerId } from './ep01';
 import { EP01 } from './ep01';
@@ -171,7 +170,11 @@ const Caption: React.FC<{ line: TimedLine; local: number }> = ({ line, local }) 
   // Palabra actual según el avance de la voz (proporcional a los caracteres).
   const words = line.text.split(' ');
   const total = line.text.length;
-  const p = Math.min(1, local / Math.max(1, line.speech - 4));
+  // Con audio, el avance se mide entre el primer y el último fotograma con voz.
+  const env = line.env;
+  const v0 = env ? Math.max(0, env.findIndex((v) => v > 0.12)) : 0;
+  const v1 = env ? env.length - 1 - [...env].reverse().findIndex((v) => v > 0.12) : line.speech - 4;
+  const p = Math.min(1, Math.max(0, (local - v0) / Math.max(1, v1 - v0)));
   const hs = line.highlight ? line.text.indexOf(line.highlight) : -1;
   const he = hs >= 0 ? hs + line.highlight!.length : -1;
   let offset = 0;
@@ -248,7 +251,7 @@ function syntheticMouth(local: number, speech: number): Mouth {
 }
 
 function levelToMouth(level: number): Mouth {
-  return level > 0.16 ? 'open' : level > 0.06 ? 'mid' : 'neutral';
+  return level > 0.55 ? 'open' : level > 0.18 ? 'mid' : 'neutral';
 }
 
 const LineView: React.FC<{ line: TimedLine; prev: SpeakerId | null; mouth: Mouth; local: number }> = ({
@@ -273,17 +276,11 @@ const SilentLine: React.FC<{ line: TimedLine; prev: SpeakerId | null }> = ({ lin
 
 const AudioLine: React.FC<{ line: TimedLine; prev: SpeakerId | null }> = ({ line, prev }) => {
   const local = useCurrentFrame();
-  const { fps } = useVideoConfig();
-  const src = staticFile(line.audio!);
-  const data = useAudioData(src);
-  let mouth: Mouth = 'neutral';
-  if (data && local < line.speech) {
-    const v = visualizeAudio({ fps, frame: local, audioData: data, numberOfSamples: 16 });
-    mouth = levelToMouth(v.reduce((a, b) => a + b, 0) / v.length);
-  }
+  const env = line.env;
+  const mouth: Mouth = env ? levelToMouth(env[local] ?? 0) : syntheticMouth(local, line.speech);
   return (
     <>
-      <Audio src={src} />
+      <Audio src={staticFile(line.audio!)} />
       <LineView line={line} prev={prev} local={local} mouth={mouth} />
     </>
   );
