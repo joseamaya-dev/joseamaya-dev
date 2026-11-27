@@ -4,8 +4,9 @@
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'fs';
 import { EP01 } from '../src/episodes/ep01.ts';
 import { EP02 } from '../src/episodes/ep02.ts';
+import { EP03 } from '../src/episodes/ep03.ts';
 
-const EPISODES = { ep01: EP01, ep02: EP02 };
+const EPISODES = { ep01: EP01, ep02: EP02, ep03: EP03 };
 const ep = EPISODES[process.argv[2] || 'ep01'];
 if (!ep) throw new Error(`Episodio desconocido: ${process.argv[2]}`);
 const force = process.argv.includes('--force');

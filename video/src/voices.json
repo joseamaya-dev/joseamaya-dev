@@ -22,5 +22,9 @@
   "metodista": {
     "name": "Jorge - Regular Guy",
     "id": "7b001dff-b8b2-4da7-92e4-5c794798effa"
+  },
+  "catolico": {
+    "name": "Iker - Thoughtful Advisor",
+    "id": "e4411d96-83e8-4e3a-b336-1d55a6f5eb31"
   }
 }

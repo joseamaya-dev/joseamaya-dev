@@ -14,6 +14,7 @@ Usa siempre la misma voz para cada personaje, en todos los episodios.
 | Élder Ríos | Hombre joven, cálido, distinto de Baker | Mateo – Friendly Host (MX) |
 | Ministro (Iglesia de Cristo) | Adulto, analítico, argumentativo | David – System Architect (MX) |
 | Ministro metodista | Mayor, relajado, cálido | Jorge – Regular Guy (MX) |
+| Sacerdote católico | Adulto, reflexivo, sereno | Iker – Thoughtful Advisor (MX) |
 
 Idioma: **Spanish**. Busca voces latinoamericanas o mexicanas y prueba antes cada una con una línea corta.
 
@@ -45,9 +46,9 @@ Fuera de la nube, define `CARTESIA_API_KEY` antes de ejecutar `scripts/voces.sh`
 
 ## Nuevo episodio
 
-1. Copia `src/episodes/ep02.ts` como `ep03.ts` y escribe el gancho, las líneas y el próximo episodio.
+1. Copia el último episodio de `src/episodes/` como `epNN.ts` y escribe el gancho, las líneas y el próximo episodio.
 2. Regístralo en `src/episodes/index.ts` y en `EPISODES` de `scripts/cartesia-tts.mjs`.
-3. Ejecuta `scripts/voces.sh ep03` y `npm run render -- Ep03 out/ep03.mp4`.
+3. Ejecuta `scripts/voces.sh epNN` y `npm run render -- EpNN out/epNN.mp4`.
 
 ## Si prefieres generar los audios a mano
 
